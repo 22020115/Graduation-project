@@ -1,0 +1,33 @@
+﻿# Python & Bytecode
+__pycache__/
+*.py[cod]
+*.class
+*.so
+.env
+venv/
+env/
+.venv/
+
+# Jupyter Notebook checkpoints
+.ipynb_checkpoints/
+.virtual_documents/
+
+# Compressed archives
+*.zip
+*.rar
+*.7z
+*.tar.gz
+
+# Segmented full PLY outputs (Keep only data/sample/)
+phase2_outputs/
+results/phase2_outputs/
+
+# Raw dataset files
+data/Label_Pot_Plant/
+data/*.ply
+!data/sample/*.ply
+
+# OS specific files
+.DS_Store
+Thumbs.db
+desktop.ini
