@@ -1,193 +1,197 @@
-# 🌾 Rice3D-PhenoSeg: 3D Point Cloud Semantic Segmentation & High-Throughput Phenotyping for Rice Crops Using Smartphone Scans
+# 🌾 Nghiên Cứu Ứng Dụng Mô Hình Học Máy Theo Dõi Sinh Trưởng Cây Lúa
+### *3D Point Cloud Semantic Segmentation & High-Throughput Phenotyping for Rice Growth Monitoring*
 
 [![Python](https://img.shields.io/badge/Python-3.8%2B-3776AB?logo=python&logoColor=white)](https://www.python.org/)
-[![PyTorch](https://img.shields.io/badge/PyTorch-2.0%2B-EE4C2C?logo=pytorch&logoColor=white)](https://pytorch.org/)
-[![Open3D](https://img.shields.io/badge/Open3D-0.17%2B-blue?logo=visual-studio-code&logoColor=white)](http://www.open3d.org/)
-[![License: MIT](https://img.shields.io/badge/License-MIT-green.svg)](LICENSE)
-[![Domain](https://img.shields.io/badge/Domain-3D%20Computer%20Vision%20%7C%20Smart%20Agriculture-orange.svg)](#)
-
-An end-to-end 3D Deep Learning and computer vision pipeline for **semantic segmentation** and **automated phenotypic traits extraction** (metric plant height measurement and tiller counting) of rice plants (*Oryza sativa*). The entire workflow operates on 3D point clouds captured using consumer smartphones (**iPhone 11**), offering a cost-effective alternative to expensive industrial LiDAR scanners.
+[![PyTorch](https://img.shields.io/badge/PyTorch-2.x-EE4C2C?logo=pytorch&logoColor=white)](https://pytorch.org/)
+[![CloudCompare](https://img.shields.io/badge/Annotation-CloudCompare-00599C)](https://www.danielgm.net/cc/)
+[![LiDAR](https://img.shields.io/badge/LiDAR-FARO%20Freestyle%202-red)](#)
+[![University](https://img.shields.io/badge/UET-VNU%20Hanoi-blue)](https://uet.vnu.edu.vn/)
 
 ---
 
-## 📑 Table of Contents
-- [Highlights & Engineering Contributions](#-highlights--engineering-contributions)
-- [End-to-End Pipeline Architecture](#-end-to-end-pipeline-architecture)
-- [Model Benchmarks & Quantitative Results](#-model-benchmarks--quantitative-results)
-- [Downstream Phenotyping](#-downstream-phenotyping)
-  - [Phase 2: Metric Plant Height Estimation](#phase-2-metric-plant-height-estimation)
-  - [Phase 2B: Automated Tiller Counting](#phase-2b-automated-tiller-counting)
-- [Visualizations & Qualitative Results](#-visualizations--qualitative-results)
-- [Repository Structure](#-repository-structure)
-- [Dataset & Data Preparation](#-dataset--data-preparation)
-- [Quick Start & Usage](#-quick-start--usage)
-- [License](#-license)
+## 🏛️ Thông Tin Đề Tài & Nhóm Nghiên Cứu
+
+* **Cơ sở đào tạo:** Khoa Công nghệ Nông nghiệp (FAT) – Trường Đại học Công nghệ, Đại học Quốc gia Hà Nội (VNU - UET).
+* **Loại hình:** Đồ án Tốt nghiệp Kỹ sư Công nghệ Nông nghiệp.
+* **Sinh viên thực hiện:** **Nguyễn Sơn Tùng** (Lớp K67G-AT, MSSV: 22020115).
+* **Giảng viên hướng dẫn:** 
+  * **TS. Nguyễn Lê Khanh** (Khoa Công nghệ Nông nghiệp, VNU - UET)
+  * **KS. Hà Quang Hưng** (Khoa Công nghệ Nông nghiệp, VNU - UET)
 
 ---
 
-## 🌟 Highlights & Engineering Contributions
+## 📌 Bối Cảnh & Mục Tiêu Nghiên Cứu
 
-- **Multi-Model 3D Deep Learning Benchmark:** Implemented, trained, and compared 6 deep architectures: **PointNet, PointNet++, KPConv, DGCNN, PointNeXt (ECCV 2022), and Point Transformer**.
-- **Surface Normal & Relative Height Feature Engineering:** Enriched spatial coordinates $(X, Y, Z)$ with surface normals estimated via local covariance ($k=20$) and relative elevation ($\Delta Z$), achieving a **+8.5% mIoU improvement** over naive coordinate baselines.
-- **Handling Class Imbalance:** Integrated inverse-frequency class weighting to overcome the severe point density disparity between the pot/background and thin rice plant blades.
-- **Large-Cloud Inference Engine:** Developed a chunked sliding-window inference algorithm with multi-pass random voting and DBSCAN filtering to segment full-resolution point clouds without downsampling artifacts.
-- **Physics-Calibrated Phenotyping:**
-  - **Metric Plant Height:** Automated pot rim identification and top-canopy localization scaled against real-world reference geometry ($cm$).
-  - **Tiller Counting (Branching):** Engineered two complementary methods: (1) Multi-slice DBSCAN clustering, and (2) 2D Canopy Height Mapping (CHM) with local maxima peak detection ($MAE = 3.33$, $r = 0.86$).
+* **Bối cảnh:** Theo chuẩn IRRI-SES và TCVN 13381-1:2021, việc theo dõi kiểu hình cây lúa định kỳ đòi hỏi đo đạc trên 20 chỉ tiêu hình thái. Trong đó, **Chiều cao cây (PH)** và **Số nhánh (dảnh lúa)** là hai chỉ tiêu then chốt phản ánh sức sinh trưởng và cấu thành năng suất.
+* **Hạn chế phương pháp truyền thống:** Phương pháp đo thủ công mang tính phá hủy mẫu (cắt, bẻ), sai số chủ quan, gián đoạn chuỗi thời gian và mất thông tin không gian 3 chiều của tán cây.
+* **Mục tiêu đề tài:** Xây dựng quy trình tích hợp đầu cuối ứng dụng học sâu trên dữ liệu đám mây điểm 3D thu thập từ máy quét LiDAR cầm tay **FARO Freestyle 2**, phục vụ **phân đoạn ngữ nghĩa**, **đo chiều cao cây** và **đếm số nhánh** trên giống lúa **ST25**.
 
 ---
 
-## 🏗️ End-to-End Pipeline Architecture
+## 🔬 Quy Trình Nghiên Cứu (4 Giai Đoạn)
 
 ```mermaid
 flowchart TD
-    A["Raw 3D Point Cloud (.ply)<br>(Captured via iPhone 11)"] --> B["Pre-processing & Normal Estimation<br>(k-NN covariance k=20 + Relative Height)"]
-    B --> C["3D Deep Learning Models<br>(DGCNN / PointNet++ / PointNeXt / KPConv)"]
-    C --> D["Chunked Voting & DBSCAN Outlier Removal"]
-    D --> E["Segmented Point Clouds<br>(Plant vs Pot)"]
-    E --> F["Phase 2: Metric Height Estimation<br>(Pot-calibrated Z-span in cm)"]
-    E --> G["Phase 2B: Tiller Counting<br>(Canopy Height Map + Peak Detection)"]
-    F --> H["Quantitative Phenotyping Report<br>(CSV / Excel Analytics)"]
-    G --> H
+    subgraph G1 ["Giai đoạn 1: Chuẩn bị mẫu & Thu thập 3D"]
+        A1["Trồng lúa ST25 (13 chậu, 26 cây)<br>Thủy canh PTN, Hoagland, 3 mức mật độ"] --> A2["Quét LiDAR 360° bằng FARO Freestyle 2<br>(Độ chính xác ±1 mm, 20 phiên, 255 mẫu .ply)"]
+        A2 --> A3["Đo Ground Truth cùng thời điểm<br>(Thước đo chiều cao + Đếm nhánh thủ công)"]
+    end
+
+    subgraph G2 ["Giai đoạn 2: Tiền xử lý & Gán nhãn"]
+        B1["Khử nhiễu sơ bộ (FARO Software)"] --> B2["Gán nhãn ngữ nghĩa (CloudCompare)<br>Lớp 0: POT | Lớp 1: PLANT"]
+        B2 --> B3["Trích xuất đặc trưng 7 chiều (xyz_h_n)<br>Tọa độ xyz + Chiều cao chuẩn hóa h + Pháp tuyến n"]
+    end
+
+    subgraph G3 ["Giai đoạn 3: Huấn luyện & So sánh 6 Mô hình 3D"]
+        C1["6 Kiến trúc Deep Learning<br>(PointNet, PointNet++, DGCNN, KPConv, PointNeXt, Point Transformer)"]
+        C1 --> C2["Lựa chọn mô hình tối ưu (DGCNN EdgeConv)"]
+    end
+
+    subgraph G4 ["Giai đoạn 4: Trích xuất chỉ tiêu kiểu hình (Phenotyping)"]
+        D1["Ước tính Chiều cao Cây (PH)<br>Phương pháp Tham chiếu Chậu (14,7 cm)"]
+        D2["Đếm Số Nhánh<br>Bản đồ Tán cây 2D (CHM) + Cực đại Cục bộ"]
+    end
+
+    G1 --> G2 --> G3 --> G4
 ```
 
 ---
 
-## 📊 Model Benchmarks & Quantitative Results
+## 📊 Kết Quả Thực Nghiệm
 
-### 1. Semantic Segmentation Comparison (Phase 1)
-All models were evaluated on the test set using Mean Intersection over Union ($mIoU$) and Overall Accuracy ($OA$):
+### 1. So Sánh Hiệu Suất Phân Đoạn Ngữ Nghĩa (Tập Test 20%)
+Cấu hình: GPU NVIDIA, PyTorch 2.x, Optimizer Adam (Cosine annealing, LR: $10^{-3}$), Batch size 16, 100 epochs + Early stopping:
 
-| Architecture | Input Representation | Plant IoU (%) | Pot IoU (%) | mIoU (%) | Checkpoint |
-| :--- | :--- | :---: | :---: | :---: | :---: |
-| **PointNet** (Baseline) | $XYZ$ | 82.1% | 88.5% | 85.3% | `checkpoints/pn_best.pth` |
-| **PointNet++** | $XYZ + Normal + \Delta Z$ | 91.4% | 94.2% | 92.8% | `checkpoints/pp_best.pth` |
-| **KPConv** | $XYZ + Normal + \Delta Z$ | 90.8% | 93.9% | 92.3% | `checkpoints/kp_best.pth` |
-| **PointNeXt** | $XYZ$ | 91.0% | 94.0% | 92.5% | `checkpoints/pointnext_best.pth` |
-| **Point Transformer** | $XYZ$ | 89.6% | 92.4% | 91.0% | `checkpoints/pt_best.pth` |
-| **DGCNN (Best)** | $XYZ + Normal + \Delta Z$ | **92.6%** | **95.1%** | **93.8%** | `checkpoints/dg_best.pth` |
+| Xếp hạng | Mô hình | Đặc điểm kiến trúc | IoU Pot (%) | IoU Plant (%) | mIoU (%) |
+| :---: | :--- | :--- | :---: | :---: | :---: |
+| 🥇 **1** | **DGCNN (Best)** | **EdgeConv + k-NN graph động** | **97,3%** | **91,1%** | **94,20%** |
+| 🥈 2 | PointNet | MLP toàn cục + Max-pooling | 96,8% | 91,0% | 93,90% |
+| 🥉 3 | PointNet++ | Phân cấp trừu tượng cục bộ (SA + FP) | 96,4% | 89,3% | 92,80% |
+| 4 | PointNeXt | Inverted residual MLP cải tiến scaling | 96,1% | 89,3% | 92,70% |
+| 5 | KPConv | Tích chập điểm linh hoạt trên không gian liên tục | 95,1% | 85,5% | 90,30% |
+| 6 | Point Transformer | Self-attention 3D cục bộ | 94,1% | 83,5% | 88,80% |
 
-> **DGCNN** achieved superior performance due to its Dynamic Graph EdgeConv operations, which dynamically capture local topological relationships between thin, intertwined rice leaves.
+> **Nhận xét:** **DGCNN** đạt hiệu suất cao nhất nhờ cơ chế **EdgeConv** học quan hệ cạnh giữa các điểm trong không gian đặc trưng, rất phù hợp với cấu trúc dạng sợi, mảnh và đan xen của lá lúa. **Point Transformer** đạt kết quả thấp nhất do mật độ điểm tán cây ($5.000 - 20.000$ điểm) chưa đủ lớn để cơ chế self-attention phát huy tối đa ưu thế.
 
 <p align="center">
-  <img src="assets/model_comparison.png" width="48%" alt="Model Comparison" />
-  <img src="assets/miou_curves.png" width="48%" alt="mIoU Curves" />
+  <img src="assets/model_comparison.png" width="48%" alt="So sánh mô hình" />
+  <img src="assets/miou_curves.png" width="48%" alt="Đường cong mIoU" />
 </p>
 
 ---
 
-## 🔬 Downstream Phenotyping
+### 2. Nghiên Cứu Loại Bỏ Thành Phần (Ablation Study trên DGCNN)
+Đánh giá vai trò vật lý của từng thành phần đặc trưng đầu vào:
 
-### Phase 2: Metric Plant Height Estimation
-1. **Outlier Rejection:** Applies DBSCAN clustering ($\epsilon = 0.05, min\_samples = 30$) to isolate noise points.
-2. **Pot Reference Calibration:** Detects the upper rim of the pot (99th percentile of $Z_{pot}$) and calculates metric scale ($cm / \text{unit}$) against known pot physical height ($15.0\text{ cm}$):
-   $$\text{Scale} = \frac{\text{Pot Real Height (cm)}}{Z_{pot\_top} - Z_{pot\_bottom}}$$
-3. **True Plant Height:** Measures elevation difference from pot rim to canopy 99.5th percentile to prevent lone-leaf noise artifacts:
-   $$\text{Height (cm)} = (Z_{plant\_top} - Z_{pot\_top}) \times \text{Scale}$$
+| Cấu hình đặc trưng | Số chiều | IoU Pot (%) | IoU Plant (%) | mIoU (%) | Cải tiến so với baseline |
+| :--- | :---: | :---: | :---: | :---: | :---: |
+| **$xyz$** (Baseline - Tọa độ thuần túy) | 3D | 95,1% | 86,4% | 90,70% | — |
+| **$xyz + h$** (Thêm chiều cao chuẩn hóa) | 4D | 96,4% | 89,3% | 92,80% | **+2,10%** |
+| **$xyz + h + n$** (Thêm vector pháp tuyến $k=20$) | 7D | **97,3%** | **91,1%** | **94,20%** | **+3,50%** |
+
+* **Chiều cao chuẩn hóa ($h$):** Tạo ranh giới quyết định tự nhiên giữa Cây và Chậu theo trục $Z$.
+* **Pháp tuyến bề mặt ($n$):** Giúp mô hình phân biệt rõ bề mặt phẳng cong đều của thành chậu với bề mặt lá lúa uốn lượn đa chiều ở vùng giao thoa mép chậu.
+
+---
+
+### 3. Ước Tính Chiều Cao Cây Lúa (Phương Pháp Tham Chiếu Chậu)
+* **Nguyên lý:** Sử dụng chiều cao chậu thực tế ($H_{pot} = 14,7\text{ cm}$) làm chuẩn tỷ lệ để tính toán khoảng cách metric từ phân vị $99,5\%$ lớp Chậu tới phân vị $99,5\%$ lớp Cây.
+* **Kết quả trên tập kiểm nghiệm ($n = 51$ mẫu):**
+
+$$\text{RRMSE} = 5,49\% \quad (<\text{Ngưỡng } 10\% \text{ của chuẩn IRRI-SES} \rightarrow \mathbf{ĐẠT\ TIÊU\ CHUẨN})$$
+
+| Chỉ số đánh giá | Giá trị | Ý nghĩa thực tế |
+| :--- | :---: | :--- |
+| **MAE** | **2,85 cm** | Sai số tuyệt đối trung bình mỗi lần đo chỉ ~2,8 cm |
+| **RMSE** | **4,23 cm** | Sai số lớn nhất điển hình ~4 cm |
+| **RRMSE** | **5,49%** | Đạt chuẩn quốc tế IRRI cho quan trắc kiểu hình lúa |
+| **$R^2$** | **0,95** | Mô hình giải thích được **95%** biến thiên thực tế |
+| **Bias** | -2,28 cm | Có xu hướng ước lượng thấp nhẹ (có thể bù bằng hệ số cố định) |
+
+* **Tính ổn định:** $76,4\%$ mẫu đạt sai số tuyệt đối $< 5\text{ cm}$. Với cây trưởng thành ($\ge 60\text{ cm}$), $MAE$ rất ổn định ở mức $2,50 - 2,54\text{ cm}$.
 
 <p align="center">
-  <img src="assets/phase2_height_measurement.png" width="70%" alt="Height Measurement" />
-</p>
-
-### Phase 2B: Automated Tiller Counting
-Accurate counting of tillers (dảnh lúa) is crucial for yield prediction:
-- **Canopy Height Mapping (CHM):** Projects 3D plant points onto a 2D grid ($voxel\_size = 0.005$) recording max $Z$.
-- **Local Maxima Detection:** Applies a Gaussian filter and peak extraction thresholded above the canopy base to eliminate drooping leaves.
-- **Results:**
-  - Mean Absolute Error ($MAE$): **3.33 tillers**
-  - Pearson Correlation ($r$): **0.86**
-  - Significantly outperforms naive mean estimation baseline ($MAE = 3.61$).
-
-<p align="center">
-  <img src="assets/phase2b_tiller_counting.png" width="48%" alt="Tiller Counting" />
-  <img src="assets/phase2b_gt_vs_pred.png" width="48%" alt="GT vs Pred" />
+  <img src="assets/phase2_height_measurement.png" width="70%" alt="Ước tính chiều cao" />
 </p>
 
 ---
 
-## 🖼️ Visualizations & Qualitative Results
+### 4. Đếm Số Nhánh Cây Lúa (Bản Đồ Tán Cây CHM + Cực Đại Cục Bộ)
+* **Nguyên lý:** Chiếu điểm 3D của lớp Cây xuống lưới 2D ($35 \times 25$, lấy $Z_{max}$ mỗi ô) $\rightarrow$ Làm mịn Gaussian ($\sigma = 1,5$) để khử nhiễu $\rightarrow$ Dò cực đại cục bộ (Local Maxima).
+* **Kết quả tổng thể ($n = 31$ mẫu test):**
+  * $MAE$: **3,84 nhánh**
+  * Hệ số tương quan Pearson: $r = 0,523$ (mô hình nắm bắt đúng xu hướng ít/nhiều nhánh).
+* **Phân tích theo từng nhóm số nhánh:**
+  * **Nhóm 14–19 nhánh:** Vùng hiệu suất tối ưu nhất, đạt $MAE = \mathbf{2,25\text{ nhánh}}$ ($r = 0,45$).
+  * **Nhóm $\ge 20$ nhánh:** Sai số tăng lên ($MAE = 5,67$) do hiện tượng tán lá dày che khuất lẫn nhau trong phép chiếu 2D.
 
-| Ground Truth vs Prediction | Error Analysis (DGCNN) | Confusion Matrix |
+<p align="center">
+  <img src="assets/phase2b_tiller_counting.png" width="48%" alt="Đếm nhánh CHM" />
+  <img src="assets/phase2b_gt_vs_pred.png" width="48%" alt="GT vs Pred đếm nhánh" />
+</p>
+
+---
+
+## 🖼️ Trực Quan Hóa Kết Quả
+
+| Phân đoạn GT vs Dự đoán (DGCNN) | Phân tích sai số phân đoạn | Ma trận nhầm lẫn (Confusion Matrix) |
 | :---: | :---: | :---: |
 | ![GT vs Pred](assets/gt_vs_pred.png) | ![Error Analysis](assets/error_analysis_DGCNN.png) | ![Confusion Matrix](assets/confusion_DGCNN.png) |
 
 ---
 
-## 📁 Repository Structure
+## 📁 Cấu Trúc Thư Mục Repository
 
 ```text
 3D-Rice-PointCloud-Phenotyping/
-├── .gitignore                      # Excludes raw large datasets and archives
-├── LICENSE                         # MIT License
-├── README.md                       # Main project documentation
-├── requirements.txt                # Python dependencies
+├── README.md                                       # Tài liệu tổng quan đề tài & kết quả nghiên cứu
+├── requirements.txt                                # Thư viện phụ thuộc (PyTorch, Open3D, plyfile,...)
+├── .gitignore                                      # Bộ lọc file nén, dataset nặng
 │
-├── assets/                         # Figures, comparison plots, and diagrams
+├── assets/                                         # Biểu đồ và hình ảnh thực nghiệm
 │   ├── gt_vs_pred.png
 │   ├── miou_curves.png
 │   ├── model_comparison.png
 │   ├── confusion_DGCNN.png
 │   ├── error_analysis_DGCNN.png
 │   ├── phase2_height_measurement.png
-│   ├── phase2b_tiller_counting.png
-│   └── ...
+│   └── phase2b_tiller_counting.png
 │
-├── checkpoints/                    # Pretrained PyTorch model weights (1MB - 6MB)
-│   ├── dg_best.pth                 # Best DGCNN checkpoint (mIoU: 93.8%)
+├── checkpoints/                                    # Trọng số các mô hình đã huấn luyện
+│   ├── dg_best.pth                                 # Weights mô hình DGCNN tối ưu (mIoU 94.20%)
 │   ├── pointnext_best.pth
 │   ├── pp_best.pth
 │   ├── kp_best.pth
-│   ├── pn_best.pth
 │   ├── pt_best.pth
-│   └── ablation/                   # Feature ablation weights (XYZ, +Normal, +Height)
+│   ├── pn_best.pth
+│   └── ablation/                                   # Checkpoints thực nghiệm loại bỏ đặc trưng
 │       ├── pp_xyz.pth
 │       ├── pp_xyz_h.pth
 │       └── pp_xyz_h_n.pth
 │
-├── data/
-│   ├── README.md                   # Instructions for downloading full dataset
-│   └── sample/                     # Lightweight sample PLY files for demo
-│       ├── sample_plant.ply
-│       └── sample_pot.ply
+├── notebooks/                                      # Jupyter Notebook toàn bộ pipeline
+│   └── rice_3d_segmentation_phenotyping.ipynb
 │
-├── notebooks/
-│   └── rice_3d_segmentation_phenotyping.ipynb  # Interactive pipeline with full code
+├── results/                                        # Bảng số liệu đối chứng đo đạc thực tế
+│   ├── phase2_heights.csv                          # Chiều cao thực vs ước lượng
+│   ├── phase2_heights_result.xlsx                  # Báo cáo thống kê Excel chi tiết
+│   └── phase2b_tillers.csv                         # Dữ liệu đếm nhánh đối chứng
 │
-└── results/                        # Phenotyping predictions & ground-truth validation
-    ├── phase2_heights.csv          # Plant height evaluations
-    ├── phase2_heights_result.xlsx  # Statistical report & analytics
-    └── phase2b_tillers.csv         # Tiller count results
+└── data/                                           # Quản lý bộ dữ liệu đám mây điểm 3D
+    └── README.md                                   # Hướng dẫn chi tiết tải 255 mẫu từ Kaggle
 ```
 
 ---
 
-## 📦 Dataset & Data Preparation
+## 💡 Đóng Góp & Định Hướng Phát Triển
 
-The 3D point cloud dataset is hosted publicly on Kaggle:
-- **Kaggle Dataset:** [Rice 3D Segmentation Dataset (Label_Pot_Plant)](https://www.kaggle.com/datasets/haquanghung/rice-3d-segmentation-dataset)
+### Đóng Góp Của Đề Tài:
+1. Xây dựng thành công **quy trình tích hợp đầu cuối (End-to-End Pipeline)** từ khâu quét LiDAR thực tế đến trích xuất kiểu hình tự động không phá mẫu.
+2. Chứng minh học sâu 3D hoàn toàn **thay thế được phương pháp đo tay chiều cao cây** với $RRMSE = 5,49\%$ (đạt tiêu chuẩn quốc tế IRRI-SES $< 10\%$).
+3. Đóng góp bộ dữ liệu **255 mẫu đám mây điểm 3D giống lúa ST25** được gán nhãn chuẩn ngữ nghĩa, làm tiền đề cho các nghiên cứu tiếp theo.
 
-To train or reproduce on the full dataset:
-1. Download and extract the archive into `data/Label_Pot_Plant/`.
-2. See [data/README.md](data/README.md) for data structure details.
-
----
-
-## 🚀 Quick Start & Usage
-
-### 1. Environment Setup
-```bash
-# Clone the repository
-git clone https://github.com/your-username/3D-Rice-PointCloud-Phenotyping.git
-cd 3D-Rice-PointCloud-Phenotyping
-
-# Install dependencies
-pip install -r requirements.txt
-```
-
-### 2. Exploring the Notebook
-Open `notebooks/rice_3d_segmentation_phenotyping.ipynb` in Jupyter Notebook, VS Code, or Google Colab to run training, evaluation, and phenotyping trait extraction interactively.
-
----
-
-## 📜 License
-This project is open-source under the [MIT License](LICENSE).
+### Hạn Chế & Định Hướng:
+* **Hạn chế:** Toàn bộ thí nghiệm thực hiện trong phòng thí nghiệm (PTN); phương pháp CHM 2D bị giảm độ chính xác khi tán lá quá dày ($\ge 20$ nhánh).
+* **Định hướng:**
+  * *Ngắn hạn:* Mở rộng thực nghiệm ngoài đồng ruộng và nghiên cứu mô hình Deep Learning 3D trực tiếp (thay vì chiếu 2D) để đếm nhánh.
+  * *Trung hạn:* Xây dựng chuỗi thời gian sinh trưởng đầy đủ từ giai đoạn mạ đến thu hoạch trên nhiều giống lúa khác nhau.
